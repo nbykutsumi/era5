@@ -1,0 +1,123 @@
+import myfunc.util as util
+from datetime import datetime, timedelta
+import os, sys
+sys.path.append('/home/utsumi/anaconda2/envs/py27/lib/python2.7/site-packages')
+import cdsapi
+import socket
+
+myhost=socket.gethostname()
+if myhost =='shui':
+    outbaseDir =  '/tank/utsumi/era5'
+elif myhost=='well':
+    outbaseDir = '/media/disk2/data/era5'
+else:
+    print 'check myhost',myhost
+    sys.exit()
+
+def ret_lDTime(iDTime,eDTime,dDTime):
+  total_steps = int( (eDTime - iDTime).total_seconds() / dDTime.total_seconds() + 1 )
+  return [iDTime + dDTime*i for i in range(total_steps)]
+
+def mk_dir(sdir):
+  try:
+    os.makedirs(sdir)
+  except OSError:
+    pass
+
+
+iDTime = datetime(2017,8,1)
+eDTime = datetime(2017,8,3)
+dDTime = timedelta(days=1)
+lDTime = util.ret_lDTime(iDTime,eDTime,dDTime)
+#grid   = None
+grid   = [0.5625,0.5625]
+#lvar = ['2m_dewpoint_temperature','2m_temperature','convective_available_potential_energy','convective_inhibition','surface_pressure','skin_temperature']
+#lvar  = ['total_precipitation','precipitation_type']
+lvar  = ['total_precipitation','10m_u_component_of_wind', '10m_v_component_of_wind']
+#lvar  = ['skin_temperature']
+#lvar = ['total_column_water_vapour','mean_vertically_integrated_moisture_divergence']
+#lvar = ['total_column_water_vapour','mean_vertically_integrated_moisture_divergence','2m_dewpoint_temperature','2m_temperature','convective_available_potential_energy','convective_inhibition','surface_pressure']
+#lvar = ['mean_vertically_integrated_moisture_divergence']
+dvarName = {'2m_dewpoint_temperature':'2d','2m_temperature':'2t','convective_available_potential_energy':'cape','convective_inhibition':'cin','surface_pressure':'sp',
+            'total_precipitation':'tp','precipitation_type':'ptype',
+            'total_column_water_vapour':'tcwv','mean_vertically_integrated_moisture_divergence':'mvimd',
+            'skin_temperature':'skt',
+            '10m_u_component_of_wind':'u10', '10m_v_component_of_wind':'v10',
+            }
+
+c = cdsapi.Client()
+
+for DTime in lDTime:
+    Year,Mon,Day = DTime.timetuple()[:3]
+
+    for var in lvar:
+        varName = dvarName[var]
+        if grid is None:
+            sgrid='org'
+        elif grid == [0.5625,0.5625]:
+            sgrid='deg05625'
+        else:
+            print 'check grid',grid
+            sys.exit()
+
+        outDir = outbaseDir + '/%s/%s/%04d%02d'%(sgrid,varName,Year,Mon)
+        util.mk_dir(outDir)
+        outPath= outDir + '/%s.%04d.%02d.%02d.nc'%(varName,Year,Mon,Day)
+        print outPath
+
+        if grid==None:
+            c.retrieve(
+                'reanalysis-era5-single-levels',
+                {
+                    'product_type':'reanalysis',
+                    'format':'netcdf',
+                    'variable':[var],
+                    'year':'%04d'%Year,
+                    'month':'%02d'%Mon,
+                    'day':'%02d'%Day,
+                    'time':[
+                        '00:00','01:00','02:00',
+                        '03:00','04:00','05:00',
+                        '06:00','07:00','08:00',
+                        '09:00','10:00','11:00',
+                        '12:00','13:00','14:00',
+                        '15:00','16:00','17:00',
+                        '18:00','19:00','20:00',
+                        '21:00','22:00','23:00'
+                    ]
+                },
+            outPath)
+
+        else:
+            c.retrieve(
+                'reanalysis-era5-single-levels',
+                {
+                    'product_type':'reanalysis',
+                    'format':'netcdf',
+                    'grid'  : grid,     # Latitude/longitude grid.           Default: 0.25 x 0.257
+                    'variable':[var],
+                    'year':'%04d'%Year,
+                    'month':'%02d'%Mon,
+                    'day':'%02d'%Day,
+                    'time':[
+                        '00:00','01:00','02:00',
+                        '03:00','04:00','05:00',
+                        '06:00','07:00','08:00',
+                        '09:00','10:00','11:00',
+                        '12:00','13:00','14:00',
+                        '15:00','16:00','17:00',
+                        '18:00','19:00','20:00',
+                        '21:00','22:00','23:00'
+                    ]
+                },
+            outPath)
+
+
+
+
+
+
+
+
+
+        
